@@ -268,8 +268,6 @@ body {
 }
 .done-copy { margin: 0; font-weight: 700; }
 .done .btn { background: var(--paper); }
-.done .btn[aria-disabled] { pointer-events: none; opacity: 0.6; }
-
 /* ---------- footer ---------- */
 
 .foot { padding: 28px var(--gutter) 40px; border-top: 4px solid var(--ink); background: var(--ink); color: var(--paper); }

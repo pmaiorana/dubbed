@@ -325,13 +325,13 @@ function description() {
   return `Dubbed from ${SERVICE[state.playlist.source]}: ${state.playlist.url}`;
 }
 
-function showDone(link) {
+function showDone(link, label = `Open in ${SERVICE[state.target]}`) {
   $("save").hidden = true;
   $("done").hidden = false;
   $("done-copy").textContent = `${keepers().length} songs are now in "${state.playlist.name}" on ${SERVICE[state.target]}.`;
   const a = $("done-link");
   a.href = link;
-  a.textContent = `Open in ${SERVICE[state.target]}`;
+  a.textContent = label;
   a.focus();
 }
 
@@ -434,32 +434,9 @@ async function saveToApple() {
   });
   if (res.status === 403) throw new Error("Apple says your account can't make playlists. You need an active Apple Music subscription.");
   if (!res.ok) throw new Error(`Apple Music said no (${res.status}). Try again.`);
-  const data = await res.json();
-  const id = data.data?.[0]?.id;
-  showDone(id ? `https://music.apple.com/library/playlist/${id}` : "https://music.apple.com/library/playlists");
-  if (id) await waitForPlaylist(id, token, userToken);
-  setDoneLinkReady(true);
-}
-
-// Apple's web player errors if you open a brand-new playlist straight away.
-// Hold the link until Apple lists the playlist's songs, for up to 30 seconds.
-async function waitForPlaylist(id, token, userToken) {
-  setDoneLinkReady(false);
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const res = await fetch(`https://api.music.apple.com/v1/me/library/playlists/${id}/tracks?limit=1`, {
-      headers: { Authorization: `Bearer ${token}`, "Music-User-Token": userToken },
-    }).catch(() => null);
-    if (res?.ok && (await res.json()).data?.length) return;
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-}
-
-function setDoneLinkReady(ready) {
-  const a = $("done-link");
-  a.toggleAttribute("aria-disabled", !ready);
-  a.textContent = ready ? `Open in ${SERVICE[state.target]}` : `Apple is filing it…`;
-  if (ready) a.focus();
+  // Apple's web player errors on a brand-new playlist's own page for a while,
+  // even after the API lists its songs. The playlists page works right away.
+  showDone("https://music.apple.com/library/playlists", "Open your Apple Music playlists");
 }
 
 // ---------- Spotify (PKCE login, so no secret in the browser) ----------
