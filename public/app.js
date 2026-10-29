@@ -437,6 +437,29 @@ async function saveToApple() {
   const data = await res.json();
   const id = data.data?.[0]?.id;
   showDone(id ? `https://music.apple.com/library/playlist/${id}` : "https://music.apple.com/library/playlists");
+  if (id) await waitForPlaylist(id, token, userToken);
+  setDoneLinkReady(true);
+}
+
+// Apple's web player errors if you open a brand-new playlist straight away.
+// Hold the link until Apple lists the playlist's songs, for up to 30 seconds.
+async function waitForPlaylist(id, token, userToken) {
+  setDoneLinkReady(false);
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    const res = await fetch(`https://api.music.apple.com/v1/me/library/playlists/${id}/tracks?limit=1`, {
+      headers: { Authorization: `Bearer ${token}`, "Music-User-Token": userToken },
+    }).catch(() => null);
+    if (res?.ok && (await res.json()).data?.length) return;
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+
+function setDoneLinkReady(ready) {
+  const a = $("done-link");
+  a.toggleAttribute("aria-disabled", !ready);
+  a.textContent = ready ? `Open in ${SERVICE[state.target]}` : `Apple is filing it…`;
+  if (ready) a.focus();
 }
 
 // ---------- Spotify (PKCE login, so no secret in the browser) ----------
