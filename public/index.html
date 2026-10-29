@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dubbed — move a playlist between Spotify and Apple Music</title>
+  <meta name="description" content="Your friend sent a Spotify playlist and you use Apple Music. Paste the link, get the playlist. Works the other way too.">
+  <meta property="og:title" content="Dubbed">
+  <meta property="og:description" content="Paste a friend's Spotify playlist, get it in Apple Music. Or the other way round.">
+  <meta name="theme-color" content="#FFE600">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Permanent+Marker&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip" href="#paste">Skip to the paste box</a>
+
+  <header class="top">
+    <a class="logo" href="/" aria-label="Dubbed home">
+      <span class="logo-ink" aria-hidden="true">Dubbed</span>
+      <span class="logo-ink logo-ink--off" aria-hidden="true">Dubbed</span>
+      <span class="sr-only">Dubbed</span>
+    </a>
+    <p class="top-note scrawl">no account. no app. no mercy.</p>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="headline">
+      <p class="sticker scrawl" aria-hidden="true">Spotify<br>⇄<br>Apple Music<span>both ways, baby</span></p>
+      <h1 id="headline" class="headline" data-text="Your friend has terrible taste in apps.">Your friend has terrible taste in apps.</h1>
+      <p class="lede">They sent a Spotify playlist. You use Apple Music. Paste the link and we'll rebuild it in your library. Works backwards too, for the Spotify people in your life.</p>
+
+      <form id="paste" class="jcard" autocomplete="off">
+        <label class="jcard-label scrawl" for="playlist-url">paste the playlist link here</label>
+        <div class="jcard-row">
+          <input id="playlist-url" name="url" type="url" inputmode="url" required
+                 placeholder="https://open.spotify.com/playlist/…"
+                 aria-describedby="paste-help paste-error">
+          <button class="btn btn--big" type="submit" id="load-btn">Dub it</button>
+        </div>
+        <p id="paste-help" class="jcard-help">Spotify or Apple Music links. The playlist has to be public. First 100 songs.</p>
+        <p id="paste-error" class="error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section id="deck" class="deck" hidden aria-live="polite">
+      <div class="tape" aria-hidden="true">
+        <svg viewBox="0 0 400 250" class="tape-svg">
+          <rect x="4" y="4" width="392" height="242" rx="14" class="tape-shell"/>
+          <rect x="30" y="22" width="340" height="140" rx="6" class="tape-label"/>
+          <rect x="30" y="22" width="340" height="26" class="tape-stripe"/>
+          <rect x="95" y="92" width="210" height="56" rx="28" class="tape-window"/>
+          <g class="reel reel--left">
+            <circle cx="135" cy="120" r="22" class="reel-hub"/>
+            <path d="M135 104 v-6 M151 120 h6 M135 136 v6 M119 120 h-6 M146 109 l4 -4 M146 131 l4 4 M124 131 l-4 4 M124 109 l-4 -4" class="reel-teeth"/>
+          </g>
+          <g class="reel reel--right">
+            <circle cx="265" cy="120" r="22" class="reel-hub"/>
+            <path d="M265 104 v-6 M281 120 h6 M265 136 v6 M249 120 h-6 M276 109 l4 -4 M276 131 l4 4 M254 131 l-4 4 M254 109 l-4 -4" class="reel-teeth"/>
+          </g>
+          <path d="M110 246 L130 196 H270 L290 246" class="tape-bottom"/>
+          <circle cx="160" cy="226" r="6" class="tape-hole"/>
+          <circle cx="240" cy="226" r="6" class="tape-hole"/>
+        </svg>
+        <p class="tape-title scrawl" id="tape-title"></p>
+        <p class="tape-side" id="tape-side"></p>
+      </div>
+
+      <div class="deck-body">
+        <div class="deck-head">
+          <h2 class="deck-name" id="deck-name"></h2>
+          <p class="deck-meta" id="deck-meta"></p>
+        </div>
+
+        <p class="progress" id="progress"></p>
+
+        <ol class="tracks" id="tracks"></ol>
+
+        <div class="save" id="save" hidden>
+          <p class="save-summary" id="save-summary"></p>
+          <div class="save-row">
+            <button class="btn btn--big" type="button" id="save-btn"></button>
+            <button class="btn btn--ghost" type="button" id="copy-btn" hidden>Copy song links</button>
+          </div>
+          <p class="save-note" id="save-note"></p>
+          <p class="error" id="save-error" role="alert" hidden></p>
+        </div>
+
+        <div class="done" id="done" hidden>
+          <p class="done-big">Dubbed.</p>
+          <p class="done-copy" id="done-copy"></p>
+          <a class="btn btn--big" id="done-link" target="_blank" rel="noopener"></a>
+          <button class="btn btn--ghost" type="button" id="again-btn">Dub another</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Not made by, endorsed by, or even known to Spotify or Apple. Songs that aren't on the other service get left behind. We don't store your playlists or logins.</p>
+  </footer>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
