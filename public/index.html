@@ -23,14 +23,12 @@
       <span class="logo-ink logo-ink--off" aria-hidden="true">Dubbed</span>
       <span class="sr-only">Dubbed</span>
     </a>
-    <p class="top-note scrawl">no account. no app. no mercy.</p>
   </header>
 
   <main>
     <section class="hero" aria-labelledby="headline">
-      <p class="sticker scrawl" aria-hidden="true">Spotify<br>⇄<br>Apple Music<span>both ways, baby</span></p>
-      <h1 id="headline" class="headline" data-text="Your friend has terrible taste in apps.">Your friend has terrible taste in apps.</h1>
-      <p class="lede">They sent a Spotify playlist. You use Apple Music. Paste the link and we'll rebuild it in your library. Works backwards too, for the Spotify people in your life.</p>
+      <h1 id="headline" class="headline" data-text="Your friend has terrible taste in music (apps).">Your friend has terrible taste in music (apps).</h1>
+      <p class="lede">They sent a Spotify playlist. You use Apple Music. Paste the link, we find the same songs on Apple Music, and you save the playlist to your library.</p>
 
       <form id="paste" class="jcard" autocomplete="off">
         <label class="jcard-label scrawl" for="playlist-url">paste the playlist link here</label>
@@ -40,7 +38,7 @@
                  aria-describedby="paste-help paste-error">
           <button class="btn btn--big" type="submit" id="load-btn">Dub it</button>
         </div>
-        <p id="paste-help" class="jcard-help">Spotify or Apple Music links. The playlist has to be public. First 100 songs.</p>
+        <p id="paste-help" class="jcard-help">Spotify playlist links only. The playlist has to be public. First 100 songs.</p>
         <p id="paste-error" class="error" role="alert" hidden></p>
       </form>
     </section>

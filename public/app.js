@@ -17,7 +17,9 @@ const state = {
   playlist: null,
   target: null,
   matches: [],
-  skip: new Set(),
+  // Rows going into the new playlist. Sure and likely matches start in; the
+  // visitor can add a closest match or drop any song.
+  included: new Set(),
 };
 
 init();
@@ -41,6 +43,10 @@ async function onPaste(event) {
   hideError("paste-error");
   const url = $("playlist-url").value.trim();
   const btn = $("load-btn");
+  if (/music\.apple\.com/.test(url)) {
+    showError("paste-error", "Spotify playlists only for now. Apple Music to Spotify isn't switched on.");
+    return;
+  }
   btn.disabled = true;
   btn.textContent = "Rewinding…";
   try {
@@ -51,7 +57,7 @@ async function onPaste(event) {
     state.playlist = data;
     state.target = data.source === "spotify" ? "apple" : "spotify";
     state.matches = [];
-    state.skip = new Set();
+    state.included = new Set();
     renderDeck();
     $("deck").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     await matchAll();
@@ -99,7 +105,7 @@ function renderDeck() {
     mark.disabled = true;
     mark.textContent = "·";
     mark.setAttribute("aria-label", "Waiting");
-    mark.addEventListener("click", () => toggleSkip(i));
+    mark.addEventListener("click", () => toggleIncluded(i));
 
     li.append(text, mark);
     return li;
@@ -136,6 +142,7 @@ async function matchAll() {
       }
       results.forEach((m, j) => {
         state.matches[start + j] = m;
+        if (verdict(m) !== "missing") state.included.add(start + j);
         setRow(start + j);
       });
       done += slice.length;
@@ -196,48 +203,51 @@ function setRow(i, forced) {
   const matchEl = li.querySelector(".track-match");
   const match = state.matches[i];
   const status = forced ?? verdict(match);
+  const included = state.included.has(i);
   li.dataset.state = status;
-  li.dataset.skip = String(state.skip.has(i));
+  li.dataset.skip = String(!forced && !included);
 
-  const skipped = state.skip.has(i);
   const labels = {
     pending: ["·", "Waiting"],
     working: ["~", "Looking"],
-    found: [skipped ? "✗" : "✓", skipped ? "Skipped. Click to include" : "Found. Click to skip"],
-    maybe: [skipped ? "✗" : "?", skipped ? "Skipped. Click to include" : "Probably right. Click to skip"],
-    missing: ["✗", `Not on ${SERVICE[state.target]}`],
+    found: [included ? "✓" : "✗", included ? "Found. Click to skip" : "Skipped. Click to include"],
+    maybe: [included ? "✓" : "?", included ? "Using the closest match" : "Not sure. Pick the closest match below"],
+    missing: [included ? "✓" : "✗", included ? "Using the closest match" : `Not on ${SERVICE[state.target]}`],
   };
   const [glyph, label] = labels[status];
   mark.textContent = glyph;
   mark.setAttribute("aria-label", label);
   mark.title = label;
-  mark.disabled = !(status === "found" || status === "maybe");
+  mark.disabled = status !== "found";
 
   matchEl.replaceChildren();
-  if (status === "maybe" && match) {
+  if ((status === "maybe" || status === "missing") && match) {
     matchEl.append("closest: ");
     const a = document.createElement("a");
     a.href = match.url;
     a.target = "_blank";
     a.rel = "noopener";
     a.textContent = `${match.title} by ${match.artists.join(", ")}`;
-    matchEl.append(a);
+    const pick = document.createElement("button");
+    pick.type = "button";
+    pick.className = "pick";
+    pick.setAttribute("aria-pressed", String(included));
+    pick.textContent = included ? "Using this song" : "Use this song";
+    pick.addEventListener("click", () => toggleIncluded(i));
+    matchEl.append(a, pick);
   } else if (status === "missing" && !forced) {
     matchEl.textContent = `not on ${SERVICE[state.target]}`;
   }
 }
 
-function toggleSkip(i) {
-  state.skip.has(i) ? state.skip.delete(i) : state.skip.add(i);
+function toggleIncluded(i) {
+  state.included.has(i) ? state.included.delete(i) : state.included.add(i);
   setRow(i);
   updateSummary();
 }
 
 function keepers() {
-  return state.matches
-    .map((m, i) => ({ m, i }))
-    .filter(({ m, i }) => m && verdict(m) !== "missing" && !state.skip.has(i))
-    .map(({ m }) => m);
+  return state.matches.filter((m, i) => m && state.included.has(i));
 }
 
 function setProgress(text) { $("progress").textContent = text; }
@@ -428,7 +438,7 @@ async function startSpotifyLogin() {
     verifier, nonce,
     playlist: state.playlist,
     matches: state.matches,
-    skip: [...state.skip],
+    included: [...state.included],
   }));
 
   const params = new URLSearchParams({
@@ -453,7 +463,7 @@ async function finishSpotifyLogin(params) {
   state.playlist = stash.playlist;
   state.target = "spotify";
   state.matches = stash.matches;
-  state.skip = new Set(stash.skip);
+  state.included = new Set(stash.included);
   renderDeck();
   state.matches.forEach((_, i) => setRow(i));
   showSave();
