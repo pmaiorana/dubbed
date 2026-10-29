@@ -325,14 +325,20 @@ function description() {
   return `Dubbed from ${SERVICE[state.playlist.source]}: ${state.playlist.url}`;
 }
 
-function showDone(link, label = `Open in ${SERVICE[state.target]}`) {
+function showDone(link) {
   $("save").hidden = true;
   $("done").hidden = false;
-  $("done-copy").textContent = `${keepers().length} songs are now in "${state.playlist.name}" on ${SERVICE[state.target]}.`;
+  const where = link ? "" : ` Find it under Playlists in ${SERVICE[state.target]}.`;
+  $("done-copy").textContent = `${keepers().length} songs are now in "${state.playlist.name}" on ${SERVICE[state.target]}.${where}`;
   const a = $("done-link");
-  a.href = link;
-  a.textContent = label;
-  a.focus();
+  a.hidden = !link;
+  if (link) {
+    a.href = link;
+    a.textContent = `Open in ${SERVICE[state.target]}`;
+    a.focus();
+  } else {
+    $("again-btn").focus();
+  }
 }
 
 function reset() {
@@ -434,9 +440,9 @@ async function saveToApple() {
   });
   if (res.status === 403) throw new Error("Apple says your account can't make playlists. You need an active Apple Music subscription.");
   if (!res.ok) throw new Error(`Apple Music said no (${res.status}). Try again.`);
-  // Apple's web player errors on a brand-new playlist's own page for a while,
-  // even after the API lists its songs. The playlists page works right away.
-  showDone("https://music.apple.com/library/playlists", "Open your Apple Music playlists");
+  // No link: on Macs, music.apple.com links open in the Music app, which can't
+  // open /library/ addresses and shows "resource not found".
+  showDone(null);
 }
 
 // ---------- Spotify (PKCE login, so no secret in the browser) ----------
