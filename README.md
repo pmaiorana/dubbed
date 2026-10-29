@@ -5,7 +5,8 @@ Paste a friend's Spotify playlist, get it rebuilt in Apple Music. Or the other w
 ## How it works
 
 - **Reading playlists:** from Spotify's public embed page and Apple Music's public web page. No keys needed. Spotify's API no longer returns songs for playlists you don't own (Feb 2026), so the embed page is the only way in. Both cap at about 100 songs.
-- **Matching:** `/api/match` searches the other service and scores each result on title, artist and length. If the artist doesn't match, it's never counted as a match.
+- **Matching:** runs in the browser (`public/match.js`). It searches the other service and scores each result on title, artist and length. If the artist doesn't match, it's never counted as a match. With an Apple key, the browser searches Apple directly. Otherwise it goes through `/api/search` on the server.
+- **Don't import `public/match.js` from the server.** Spacefast leaves files the server imports out of the static site, so the browser would get a 404.
 - **Saving to Apple Music:** MusicKit JS in the browser, with a developer token signed by the server.
 - **Saving to Spotify:** the visitor logs in to Spotify (PKCE, so no secret in the browser). Spotify's dev mode only allows 5 approved accounts, so everyone else gets "Copy song links" to paste into the Spotify desktop app.
 

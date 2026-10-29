@@ -1,8 +1,12 @@
-// Dubbed: server half. Reads public playlists, matches songs across services,
-// and hands out the Apple Music developer token. Static files in public/ are
+// Dubbed: server half. Reads public playlists, signs the Apple Music developer
+// token, and runs searches the browser can't. Static files in public/ are
 // served by Spacefast; anything they don't answer lands here.
+//
+// Matching (public/match.js) runs in the browser. Don't import it here:
+// Spacefast leaves files the worker imports out of the static site.
+// Apple catalog searches also run in the browser, because Apple rejects many
+// requests from our shared server address with 401s.
 
-import { scoreMatch, type Track, type Candidate } from "./lib/match.ts";
 import { readApplePlaylist, readSpotifyPlaylist, parsePlaylistUrl } from "./lib/playlists.ts";
 
 type Env = {
@@ -13,7 +17,7 @@ type Env = {
   SPOTIFY_CLIENT_SECRET?: string;
 };
 
-const MAX_BATCH = 10;
+type Candidate = { id: string; title: string; artists: string[]; durationMs?: number; uri?: string; url?: string; art?: string };
 
 export default {
   async fetch(request: Request, env: Env = {}): Promise<Response> {
@@ -21,8 +25,8 @@ export default {
     try {
       if (url.pathname === "/api/config") return config(env);
       if (url.pathname === "/api/playlist") return await playlist(url);
-      if (url.pathname === "/api/match" && request.method === "POST") return await match(request, env);
-      if (url.pathname === "/api/apple/token") return await appleToken(env, url);
+      if (url.pathname === "/api/search") return await search(url, env);
+      if (url.pathname === "/api/apple/token") return await appleToken(env);
     } catch (err) {
       const status = (err as { status?: number }).status ?? 500;
       const message = err instanceof Error ? err.message : "Something broke.";
@@ -66,40 +70,23 @@ async function playlist(url: URL) {
   return Response.json(result);
 }
 
-async function match(request: Request, env: Env) {
-  const body = await request.json() as { target: "apple" | "spotify"; storefront?: string; tracks: Track[] };
-  const tracks = (body.tracks ?? []).slice(0, MAX_BATCH);
-  const storefront = /^[a-z]{2}$/.test(body.storefront ?? "") ? body.storefront! : "us";
-
-  let search: (q: string) => Promise<Candidate[]>;
-  if (body.target === "apple") {
-    search = appleConfigured(env)
-      ? (q) => searchAppleCatalog(env, storefront, q)
-      : (q) => searchItunes(storefront, q);
-  } else if (body.target === "spotify") {
+// Search pass-through: Spotify, or Apple via the free iTunes search when no
+// Apple key is set (fine locally, rate-limited on shared hosting).
+async function search(url: URL, env: Env) {
+  const q = url.searchParams.get("q") ?? "";
+  const target = url.searchParams.get("target");
+  const storefront = /^[a-z]{2}$/.test(url.searchParams.get("storefront") ?? "") ? url.searchParams.get("storefront")! : "us";
+  if (!q) throw new HttpError(400, "Missing search.");
+  if (target === "apple") return Response.json({ candidates: await searchItunes(storefront, q) });
+  if (target === "spotify") {
     if (!spotifyConfigured(env)) throw new HttpError(503, "Spotify matching isn't switched on yet. The site owner needs to add Spotify keys.");
-    search = (q) => searchSpotify(env, q);
-  } else {
-    throw new HttpError(400, "Unknown target.");
+    return Response.json({ candidates: await searchSpotify(env, q) });
   }
-
-  const results = await Promise.all(tracks.map((t) => bestMatch(t, search)));
-  return Response.json({ results });
+  throw new HttpError(400, "Unknown target.");
 }
 
-async function bestMatch(track: Track, search: (q: string) => Promise<Candidate[]>) {
-  const primaryArtist = track.artists[0] ?? "";
-  const queries = [`${track.title} ${primaryArtist}`, track.title];
-  let best: { candidate: Candidate; score: number } | null = null;
-  for (const q of queries) {
-    const candidates = await search(q);
-    for (const candidate of candidates) {
-      const score = scoreMatch(track, candidate);
-      if (!best || score > best.score) best = { candidate, score };
-    }
-    if (best && best.score >= 0.8) break;
-  }
-  return best ? { ...best.candidate, score: Math.round(best.score * 100) / 100 } : null;
+function splitArtists(s: string = "") {
+  return s.split(/\s*(?:,|&|\bfeat\.?|\bft\.)\s*/i).filter(Boolean);
 }
 
 // ---------- Apple ----------
@@ -123,23 +110,6 @@ async function searchItunes(storefront: string, q: string): Promise<Candidate[]>
   }));
 }
 
-async function searchAppleCatalog(env: Env, storefront: string, q: string): Promise<Candidate[]> {
-  const token = await getAppleDeveloperToken(env);
-  const res = await fetch(`https://api.music.apple.com/v1/catalog/${storefront}/search?${new URLSearchParams({ term: q, types: "songs", limit: "6" })}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return searchItunes(storefront, q);
-  const data = await res.json() as any;
-  return (data.results?.songs?.data ?? []).map((s: any) => ({
-    id: s.id,
-    title: s.attributes.name,
-    artists: splitArtists(s.attributes.artistName),
-    durationMs: s.attributes.durationInMillis,
-    url: s.attributes.url,
-    art: s.attributes.artwork?.url?.replace("{w}", "100").replace("{h}", "100"),
-  }));
-}
-
 let appleTokenCache: { token: string; exp: number } | null = null;
 
 async function getAppleDeveloperToken(env: Env) {
@@ -159,7 +129,7 @@ async function getAppleDeveloperToken(env: Env) {
   return token;
 }
 
-async function appleToken(env: Env, url: URL) {
+async function appleToken(env: Env) {
   if (!appleConfigured(env)) throw new HttpError(503, "Saving to Apple Music isn't switched on yet. The site owner needs to add an Apple MusicKit key.");
   return Response.json({ token: await getAppleDeveloperToken(env) }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -207,8 +177,4 @@ async function searchSpotify(env: Env, q: string): Promise<Candidate[]> {
     url: t.external_urls?.spotify,
     art: t.album?.images?.at(-1)?.url,
   }));
-}
-
-function splitArtists(s: string = "") {
-  return s.split(/\s*(?:,|&|\bfeat\.?|\bft\.)\s*/i).filter(Boolean);
 }

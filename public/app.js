@@ -1,11 +1,15 @@
-// Dubbed: browser half. Loads a playlist, matches it on the other service
-// through /api/match, then saves it with the visitor's own login.
+// Dubbed: browser half. Loads a playlist, matches it on the other service,
+// then saves it with the visitor's own login. Apple searches run from here,
+// not the server, because Apple rejects many requests from our shared host.
+
+import { bestMatch, splitArtists } from "./match.js";
 
 const $ = (id) => document.getElementById(id);
 
 const SERVICE = { spotify: "Spotify", apple: "Apple Music" };
 const BATCH = 10;
-const PARALLEL = 2;
+const PARALLEL = 1;
+const RETRY_WAITS = [3000, 8000, 15000];
 const STASH_KEY = "dubbed:pending";
 
 const state = {
@@ -125,14 +129,7 @@ async function matchAll() {
       slice.forEach((_, j) => setRow(start + j, "working"));
       let results;
       try {
-        const res = await fetch("/api/match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ target: state.target, storefront: guessStorefront(), tracks: slice }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Matching failed.");
-        results = data.results;
+        results = await matchBatch(slice, done, tracks.length);
       } catch (err) {
         batches.length = 0;
         throw err;
@@ -156,6 +153,33 @@ async function matchAll() {
     showSave(err.message);
   } finally {
     document.querySelector(".tape").classList.remove("is-dubbing");
+  }
+}
+
+// Apple with a key: search Apple straight from the browser. Otherwise go
+// through the server's /api/search.
+async function matchBatch(slice, done, total) {
+  const storefront = guessStorefront();
+  const search = state.target === "apple" && state.config.apple
+    ? (q) => searchAppleCatalog(storefront, q, done, total)
+    : (q) => searchViaServer(storefront, q, done, total);
+  const results = [];
+  for (const track of slice) results.push(await bestMatch(track, search));
+  return results;
+}
+
+// When a search service is busy the server says 503. Wait and try again.
+async function searchViaServer(storefront, q, done, total) {
+  const url = `/api/search?${new URLSearchParams({ target: state.target, storefront, q })}`;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return data.candidates;
+    if (res.status !== 503 || attempt >= RETRY_WAITS.length || /switched on/.test(data.error ?? "")) {
+      throw new Error(data.error ?? "Search failed.");
+    }
+    setProgress(`tape jammed. rewinding… ${done} of ${total}`);
+    await new Promise((r) => setTimeout(r, RETRY_WAITS[attempt]));
   }
 }
 
@@ -309,6 +333,42 @@ function reset() {
 
 // ---------- Apple Music ----------
 
+let developerToken = null;
+
+async function getDeveloperToken() {
+  if (developerToken) return developerToken;
+  const res = await fetch("/api/apple/token");
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error);
+  developerToken = data.token;
+  return developerToken;
+}
+
+async function searchAppleCatalog(storefront, q, done, total) {
+  const token = await getDeveloperToken();
+  const url = `https://api.music.apple.com/v1/catalog/${storefront}/search?${new URLSearchParams({ term: q, types: "songs", limit: "6" })}`;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) {
+      const data = await res.json();
+      return (data.results?.songs?.data ?? []).map((s) => ({
+        id: s.id,
+        title: s.attributes.name,
+        artists: splitArtists(s.attributes.artistName),
+        durationMs: s.attributes.durationInMillis,
+        url: s.attributes.url,
+      }));
+    }
+    // 429 = slow down. 401 = Apple sometimes rejects a valid token at random; a quick retry usually works.
+    const waits = res.status === 401 ? [300, 600, 1000, 1500, 2500] : RETRY_WAITS;
+    if ((res.status !== 429 && res.status !== 401) || attempt >= waits.length) {
+      throw new Error(`Apple Music search failed (${res.status}). Try again in a minute.`);
+    }
+    if (res.status === 429) setProgress(`tape jammed. rewinding… ${done} of ${total}`);
+    await new Promise((r) => setTimeout(r, waits[attempt]));
+  }
+}
+
 function loadMusicKit() {
   if (window.MusicKit) return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -322,9 +382,7 @@ function loadMusicKit() {
 }
 
 async function saveToApple() {
-  const tokenRes = await fetch("/api/apple/token");
-  const { token, error } = await tokenRes.json();
-  if (!tokenRes.ok) throw new Error(error);
+  const token = await getDeveloperToken();
 
   await loadMusicKit();
   await MusicKit.configure({ developerToken: token, app: { name: "Dubbed", build: "1.0.0" } });
