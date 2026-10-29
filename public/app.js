@@ -58,6 +58,7 @@ async function onPaste(event) {
     state.target = data.source === "spotify" ? "apple" : "spotify";
     state.matches = [];
     state.included = new Set();
+    if (state.target === "apple" && state.config.apple) prepareMusicKit().catch(() => {});
     renderDeck();
     $("deck").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
     await matchAll();
@@ -391,14 +392,33 @@ function loadMusicKit() {
   });
 }
 
-async function saveToApple() {
-  const token = await getDeveloperToken();
+// Apple's sign-in opens a popup, and browsers block popups that don't open
+// right on the click. So MusicKit gets loaded and configured while matching
+// runs, and the Save click goes straight to authorize().
+let musicKitReady = null;
+let musicKit = null;
 
-  await loadMusicKit();
-  await MusicKit.configure({ developerToken: token, app: { name: "Dubbed", build: "1.0.0" } });
-  const music = MusicKit.getInstance();
-  const userToken = await music.authorize();
+function prepareMusicKit() {
+  musicKitReady ??= (async () => {
+    const token = await getDeveloperToken();
+    await loadMusicKit();
+    await MusicKit.configure({ developerToken: token, app: { name: "Dubbed", build: "1.0.0" } });
+    musicKit = MusicKit.getInstance();
+  })().catch((err) => {
+    musicKitReady = null;
+    throw err;
+  });
+  return musicKitReady;
+}
+
+async function saveToApple() {
+  if (!musicKit) {
+    await prepareMusicKit();
+    throw new Error("Apple sign-in is ready now. Click Save again.");
+  }
+  const userToken = await musicKit.authorize();
   if (!userToken) throw new Error("Apple sign-in was cancelled.");
+  const token = await getDeveloperToken();
 
   const res = await fetch("https://api.music.apple.com/v1/me/library/playlists", {
     method: "POST",
