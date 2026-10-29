@@ -106,7 +106,12 @@ async function bestMatch(track: Track, search: (q: string) => Promise<Candidate[
 
 async function searchItunes(storefront: string, q: string): Promise<Candidate[]> {
   const res = await fetch(`https://itunes.apple.com/search?${new URLSearchParams({ term: q, entity: "song", limit: "6", country: storefront })}`);
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.warn(`itunes search ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    // Shared server IPs hit this limit fast. Say so rather than report every song missing.
+    if (res.status === 429 || res.status === 403) throw new HttpError(503, "Apple's song search is busy. Try again in a minute.");
+    return [];
+  }
   const data = await res.json() as { results: any[] };
   return data.results.map((r) => ({
     id: String(r.trackId),
