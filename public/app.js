@@ -324,7 +324,7 @@ async function onCopy() {
 function description() {
   const { owner, source, url } = state.playlist;
   const from = owner ? `${owner}'s ${SERVICE[source]} playlist` : SERVICE[source];
-  return `Dubbed from ${from}: ${url}`;
+  return `Dubbed from ${from}: ${url} — Dub your own at https://dubbed.space.fast`;
 }
 
 function showDone(link, label = `Open in ${SERVICE[state.target]}`, isPublic = false) {
