@@ -320,7 +320,7 @@ body {
 .save[hidden], .done[hidden] { display: none; }
 .save-summary { margin: 0 0 14px; font-weight: 800; font-variation-settings: "wdth" 100; font-size: 1.25rem; }
 .save-row { display: flex; gap: 14px; flex-wrap: wrap; }
-.save-note { margin: 14px 0 0; font-size: 0.95rem; max-width: 60ch; }
+.save-note { margin: 14px 0 0; font-size: 0.95rem; max-width: 60ch; text-wrap: pretty; }
 .save-note:empty { display: none; }
 .save-note a { color: inherit; }
 .save .error { color: var(--ink); }
