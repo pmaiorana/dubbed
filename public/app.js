@@ -493,7 +493,7 @@ function showSave(errorMessage) {
       note.replaceChildren(
         "Apple will ask you to sign in: that happens in Apple's own window, so your password goes directly to Apple, not to us. ",
         code,
-        ", so you can verify this as well.",
+        ", if you want to verify.",
       );
     } else {
       note.textContent = "Saving to Apple Music isn't switched on yet. The site owner needs to add an Apple MusicKit key.";
