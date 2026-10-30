@@ -226,6 +226,8 @@ body {
 .deck-meta { margin: 8px 0 0; font-variation-settings: "wdth" 85; font-weight: 600; }
 
 .progress { margin: 0 0 16px; font-family: var(--marker); font-size: 1.3rem; color: var(--accent-text); min-height: 1.5em; }
+/* Stays in view while the page follows the list down. */
+.progress:not(:empty) { position: sticky; top: 0; z-index: 1; padding: 8px 0; background: var(--bg); }
 
 .tracks {
   list-style: none; margin: 0; padding: 0;

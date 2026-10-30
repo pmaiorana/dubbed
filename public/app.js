@@ -171,15 +171,34 @@ async function matchAll() {
   }
 }
 
-// While matching, keep the newest rows in view, then land on Save. Stops as
-// soon as the visitor scrolls on their own.
+// While matching, keep the newest rows in view, then land on Save. Stops when
+// the visitor clearly scrolls back up. A stray trackpad touch or scrolling
+// down doesn't count.
+const SCROLL_UP_LIMIT = 60;
 let following = false;
-for (const type of ["wheel", "touchmove", "keydown"]) {
-  addEventListener(type, () => { following = false; }, { passive: true });
+let scrolledUp = 0;
+let touchY = null;
+
+function scrolledBack(px) {
+  scrolledUp += px;
+  if (scrolledUp > SCROLL_UP_LIMIT) following = false;
 }
 
+addEventListener("wheel", (e) => { if (e.deltaY < 0) scrolledBack(-e.deltaY); }, { passive: true });
+addEventListener("touchstart", (e) => { touchY = e.touches[0].clientY; }, { passive: true });
+addEventListener("touchmove", (e) => {
+  const y = e.touches[0].clientY;
+  if (touchY !== null && y > touchY) scrolledBack(y - touchY);
+  touchY = y;
+}, { passive: true });
+addEventListener("keydown", (e) => {
+  if (["ArrowUp", "PageUp", "Home"].includes(e.key)) following = false;
+});
+
 function follow(el) {
-  if (following && el) el.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
+  if (!following || !el) return;
+  scrolledUp = 0;
+  el.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
 }
 
 function scrollBehavior() {
