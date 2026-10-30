@@ -4,10 +4,44 @@
   --blue: #2340FF;
   --ink: #000000;
   --white: #FFFFFF;
+
+  /* Roles. The raw colors above stay fixed (the cassette uses them); these
+     swap for dark mode. */
+  --bg: var(--paper);
+  --text: var(--ink);
+  --line: var(--ink);
+  --card: var(--white);
+  --field: var(--paper);
+  --headline: var(--blue);
+  --accent-text: var(--blue);
+  --muted: rgb(0 0 0 / 0.7);
+  --rule: rgb(0 0 0 / 0.25);
+  --placeholder: rgb(0 0 0 / 0.45);
+  --grain: rgb(255 61 154 / 0.22);
+
   --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
   --marker: "Permanent Marker", "Comic Sans MS", cursive;
-  --shadow: 7px 7px 0 var(--ink);
+  --shadow: 7px 7px 0 var(--line);
   --gutter: clamp(16px, 4vw, 48px);
+  color-scheme: light;
+}
+
+/* Night print run: indigo stock, yellow becomes the ink. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15163A;
+    --text: #F6F3FF;
+    --line: var(--paper);
+    --card: #22245A;
+    --field: #0F1030;
+    --headline: var(--paper);
+    --accent-text: #9AA6FF;
+    --muted: rgb(246 243 255 / 0.72);
+    --rule: rgb(246 243 255 / 0.22);
+    --placeholder: rgb(246 243 255 / 0.5);
+    --grain: rgb(255 61 154 / 0.18);
+    color-scheme: dark;
+  }
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -18,15 +52,15 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--bg);
+  color: var(--text);
   font-family: var(--sans);
   font-variation-settings: "wdth" 100;
   font-size: 1.0625rem;
   line-height: 1.5;
   overflow-x: hidden;
   /* Riso halftone grain over the whole sheet. */
-  background-image: radial-gradient(rgb(255 61 154 / 0.22) 1px, transparent 1.4px);
+  background-image: radial-gradient(var(--grain) 1px, transparent 1.4px);
   background-size: 9px 9px;
 }
 
@@ -34,9 +68,9 @@ body {
   position: absolute; width: 1px; height: 1px; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap;
 }
-.skip:focus { position: fixed; top: 8px; left: 8px; z-index: 10; background: var(--white); padding: 8px 12px; border: 3px solid var(--ink); }
+.skip:focus { position: fixed; top: 8px; left: 8px; z-index: 10; background: var(--card); padding: 8px 12px; border: 3px solid var(--line); }
 
-:focus-visible { outline: 4px solid var(--blue); outline-offset: 3px; }
+:focus-visible { outline: 4px solid var(--accent-text); outline-offset: 3px; }
 
 .scrawl { font-family: var(--marker); font-weight: 400; }
 
@@ -53,7 +87,7 @@ body {
   font-size: 1.9rem; line-height: 1; letter-spacing: -0.03em;
 }
 .logo { isolation: isolate; }
-.logo-ink { color: var(--blue); }
+.logo-ink { color: var(--headline); }
 .logo-ink--off { position: absolute; inset: 0; color: var(--pink); transform: translate(3px, 2px); z-index: -1; }
 
 /* ---------- hero ---------- */
@@ -69,7 +103,7 @@ body {
   font-size: clamp(2.6rem, 7.6vw, 7rem);
   line-height: 0.88;
   letter-spacing: -0.045em;
-  color: var(--blue);
+  color: var(--headline);
   transform: rotate(-2.5deg);
   transform-origin: left bottom;
   isolation: isolate;
@@ -99,8 +133,8 @@ body {
 
 .jcard {
   max-width: 860px;
-  background: var(--white);
-  border: 4px solid var(--ink);
+  background: var(--card);
+  border: 4px solid var(--line);
   box-shadow: 12px 12px 0 var(--blue);
   padding: 18px 20px 16px;
   transform: rotate(0.6deg);
@@ -112,18 +146,18 @@ body {
   font: inherit; font-size: clamp(1rem, 2vw, 1.25rem); font-weight: 600;
   font-variation-settings: "wdth" 80;
   padding: 14px 14px;
-  border: 3px solid var(--ink);
+  border: 3px solid var(--line);
   border-radius: 0;
-  background: var(--paper);
-  color: var(--ink);
+  background: var(--field);
+  color: var(--text);
 }
-.jcard input::placeholder { color: rgb(0 0 0 / 0.45); }
+.jcard input::placeholder { color: var(--placeholder); }
 .jcard-help { margin: 10px 0 0; font-size: 0.92rem; font-variation-settings: "wdth" 85; }
 
 .error {
   margin: 12px 0 0; padding: 10px 12px;
   background: var(--pink); color: var(--ink);
-  border: 3px solid var(--ink); font-weight: 700;
+  border: 3px solid var(--line); font-weight: 700;
 }
 
 /* ---------- buttons ---------- */
@@ -135,13 +169,13 @@ body {
   padding: 12px 20px;
   color: var(--ink); background: var(--pink);
   border: 3px solid var(--ink); border-radius: 999px;
-  box-shadow: 5px 5px 0 var(--ink);
+  box-shadow: 5px 5px 0 var(--line);
   cursor: pointer; text-decoration: none;
   transition: transform 80ms ease, box-shadow 80ms ease;
 }
-.btn:hover { transform: translate(-2px, -2px) rotate(-1deg); box-shadow: 7px 7px 0 var(--ink); }
-.btn:active { transform: translate(4px, 4px); box-shadow: 1px 1px 0 var(--ink); }
-.btn[disabled] { opacity: 0.55; cursor: progress; transform: none; box-shadow: 2px 2px 0 var(--ink); }
+.btn:hover { transform: translate(-2px, -2px) rotate(-1deg); box-shadow: 7px 7px 0 var(--line); }
+.btn:active { transform: translate(4px, 4px); box-shadow: 1px 1px 0 var(--line); }
+.btn[disabled] { opacity: 0.55; cursor: progress; transform: none; box-shadow: 2px 2px 0 var(--line); }
 .btn--big { font-size: clamp(1.2rem, 2.4vw, 1.6rem); padding: 14px 28px; }
 .btn--ghost { background: var(--white); }
 
@@ -191,12 +225,12 @@ body {
 }
 .deck-meta { margin: 8px 0 0; font-variation-settings: "wdth" 85; font-weight: 600; }
 
-.progress { margin: 0 0 16px; font-family: var(--marker); font-size: 1.3rem; color: var(--blue); min-height: 1.5em; }
+.progress { margin: 0 0 16px; font-family: var(--marker); font-size: 1.3rem; color: var(--accent-text); min-height: 1.5em; }
 
 .tracks {
   list-style: none; margin: 0; padding: 0;
-  background: var(--white);
-  border: 4px solid var(--ink);
+  background: var(--card);
+  border: 4px solid var(--line);
   box-shadow: var(--shadow);
   counter-reset: track;
 }
@@ -207,7 +241,7 @@ body {
   gap: 4px 12px;
   align-items: center;
   padding: 9px 14px;
-  border-bottom: 2px dashed rgb(0 0 0 / 0.25);
+  border-bottom: 2px dashed var(--rule);
 }
 .track:last-child { border-bottom: 0; }
 .track::before {
@@ -220,28 +254,28 @@ body {
   font-size: 1.08rem; line-height: 1.15;
   overflow-wrap: anywhere;
 }
-.track-artist { display: block; font-size: 0.9rem; font-variation-settings: "wdth" 85; color: rgb(0 0 0 / 0.7); }
-.track-match { display: block; font-size: 0.85rem; font-variation-settings: "wdth" 85; color: var(--blue); margin-top: 2px; }
+.track-artist { display: block; font-size: 0.9rem; font-variation-settings: "wdth" 85; color: var(--muted); }
+.track-match { display: block; font-size: 0.85rem; font-variation-settings: "wdth" 85; color: var(--accent-text); margin-top: 2px; }
 .track-match a { color: inherit; }
 .pick {
   margin-left: 8px; padding: 2px 10px;
   font: inherit; font-weight: 800; font-size: 0.8rem; font-variation-settings: "wdth" 100;
-  color: var(--ink); background: var(--paper);
-  border: 2px solid var(--ink); border-radius: 999px;
+  color: var(--text); background: var(--field);
+  border: 2px solid var(--line); border-radius: 999px;
   cursor: pointer;
 }
 .pick[aria-pressed="true"] { background: var(--blue); color: var(--white); }
 
 .mark {
   font-family: var(--marker); font-size: 1.55rem; line-height: 1;
-  background: none; border: 0; padding: 4px 6px; cursor: pointer; color: var(--ink);
+  background: none; border: 0; padding: 4px 6px; cursor: pointer; color: var(--text);
   min-width: 44px; min-height: 44px;
 }
 .mark[disabled] { cursor: default; }
-.track[data-state="found"] .mark { color: var(--blue); }
-.track[data-state="maybe"] .mark { color: var(--ink); }
+.track[data-state="found"] .mark { color: var(--accent-text); }
+.track[data-state="maybe"] .mark { color: var(--text); }
 .track[data-state="missing"] .mark { color: var(--pink); }
-.track:is([data-state="maybe"], [data-state="missing"])[data-skip="false"] .mark { color: var(--blue); }
+.track:is([data-state="maybe"], [data-state="missing"])[data-skip="false"] .mark { color: var(--accent-text); }
 .track[data-skip="true"] .track-title { text-decoration: line-through; text-decoration-thickness: 3px; text-decoration-color: var(--pink); }
 .track[data-skip="true"] { opacity: 0.5; }
 .track[data-state="working"] .mark { animation: wobble 0.5s ease-in-out infinite alternate; }
@@ -250,7 +284,7 @@ body {
 .save, .done {
   margin-top: 28px; padding: 20px;
   background: var(--blue); color: var(--white);
-  border: 4px solid var(--ink); box-shadow: var(--shadow);
+  border: 4px solid var(--line); box-shadow: var(--shadow);
   transform: rotate(-0.8deg);
 }
 .save[hidden], .done[hidden] { display: none; }
@@ -271,7 +305,7 @@ body {
 .done .btn { background: var(--paper); }
 /* ---------- footer ---------- */
 
-.foot { padding: 28px var(--gutter) 40px; border-top: 4px solid var(--ink); background: var(--ink); color: var(--paper); }
+.foot { padding: 28px var(--gutter) 40px; border-top: 4px solid var(--line); background: var(--ink); color: var(--paper); }
 .foot p { margin: 0; max-width: 70ch; font-size: 0.9rem; font-variation-settings: "wdth" 85; }
 
 /* ---------- small screens ---------- */
