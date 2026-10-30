@@ -267,6 +267,33 @@ body {
   cursor: pointer;
 }
 .pick[aria-pressed="true"] { background: var(--blue); color: var(--white); }
+.find {
+  margin-left: 8px; padding: 0;
+  font: inherit; font-weight: 700; font-size: 0.8rem;
+  color: var(--accent-text); background: none; border: 0;
+  text-decoration: underline; cursor: pointer;
+}
+
+.track-search { margin-top: 8px; }
+.search-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.search-row input {
+  flex: 1 1 200px; min-width: 0;
+  font: inherit; font-size: 0.95rem; font-weight: 600; font-variation-settings: "wdth" 80;
+  padding: 6px 10px;
+  border: 2px solid var(--line); border-radius: 0;
+  background: var(--field); color: var(--text);
+}
+.search-row .pick { margin-left: 0; }
+.search-results { list-style: none; margin: 8px 0 0; padding: 0; }
+.search-results li {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  padding: 5px 0; border-top: 1px dashed var(--rule);
+  font-size: 0.85rem; font-variation-settings: "wdth" 85;
+}
+.search-results a { color: var(--accent-text); }
+.search-results .pick { margin-left: 0; }
+.search-length { color: var(--muted); }
+.search-note { color: var(--muted); }
 
 .mark {
   font-family: var(--marker); font-size: 1.55rem; line-height: 1;
@@ -280,6 +307,7 @@ body {
 .track:is([data-state="maybe"], [data-state="missing"])[data-skip="false"] .mark { color: var(--accent-text); }
 .track[data-skip="true"] .track-title { text-decoration: line-through; text-decoration-thickness: 3px; text-decoration-color: var(--pink); }
 .track[data-skip="true"] { opacity: 0.5; }
+.track[data-skip="true"]:has(.track-search) { opacity: 1; }
 .track[data-state="working"] .mark { animation: wobble 0.5s ease-in-out infinite alternate; }
 @keyframes wobble { to { transform: rotate(14deg); } }
 

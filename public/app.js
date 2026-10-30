@@ -20,6 +20,7 @@ const state = {
   playlist: null,
   target: null,
   matches: [],
+  matching: false,
   // Rows going into the new playlist. Sure and likely matches start in; the
   // visitor can add a closest match or drop any song.
   included: new Set(),
@@ -132,6 +133,7 @@ async function matchAll() {
   document.querySelector(".tape").classList.add("is-dubbing");
   setProgress(`dubbing… 0 of ${tracks.length}`);
   following = true;
+  state.matching = true;
 
   const worker = async () => {
     while (batches.length) {
@@ -168,6 +170,11 @@ async function matchAll() {
     document.querySelector(".tape").classList.remove("is-dubbing");
     follow($("save"));
     following = false;
+    // Now add the search links, held back so rows didn't shift while matching.
+    state.matching = false;
+    [...$("tracks").children].forEach((li, i) => {
+      if (!["pending", "working"].includes(li.dataset.state)) setRow(i);
+    });
   }
 }
 
@@ -207,15 +214,23 @@ function scrollBehavior() {
 
 // Apple with a key: search Apple straight from the browser. Otherwise go
 // through the server's /api/search.
-async function matchBatch(slice, done, total) {
-  const storefront = guessStorefront();
-  const search = state.target === "apple" && state.config.apple
+function searcher(storefront, done, total) {
+  return state.target === "apple" && state.config.apple
     ? (q) => searchAppleCatalog(storefront, q, done, total)
     : (q) => searchViaServer(storefront, q, done, total);
+}
+
+function matchKey(track, storefront) {
+  return `${state.target}:${storefront}:${track.title}|${track.artists.join(",")}`;
+}
+
+async function matchBatch(slice, done, total) {
+  const storefront = guessStorefront();
+  const search = searcher(storefront, done, total);
   const known = readMatches();
   const results = [];
   for (const track of slice) {
-    const key = `${state.target}:${storefront}:${track.title}|${track.artists.join(",")}`;
+    const key = matchKey(track, storefront);
     const hit = known[key];
     if (hit && Date.now() - hit.at < MATCHES_TTL) {
       results.push(hit.match);
@@ -258,7 +273,7 @@ async function searchViaServer(storefront, q, done, total) {
     if (res.status !== 503 || attempt >= RETRY_WAITS.length || /switched on/.test(data.error ?? "")) {
       throw new Error(data.error ?? "Search failed.");
     }
-    setProgress(`tape jammed. rewinding… ${done} of ${total}`);
+    if (total) setProgress(`tape jammed. rewinding… ${done} of ${total}`);
     await new Promise((r) => setTimeout(r, RETRY_WAITS[attempt]));
   }
 }
@@ -294,23 +309,145 @@ function setRow(i, forced) {
   mark.disabled = status !== "found";
 
   matchEl.replaceChildren();
-  if ((status === "maybe" || status === "missing") && match) {
-    matchEl.append("closest: ");
-    const a = document.createElement("a");
-    a.href = match.url;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.textContent = `${match.title} by ${match.artists.join(", ")}`;
+  // A "missing" closest match is usually somebody else's song with the same
+  // title, so only "maybe" gets offered. For the rest, there's search.
+  if (status === "maybe" && match) {
+    matchEl.append("closest: ", songLink(match));
     const pick = document.createElement("button");
     pick.type = "button";
     pick.className = "pick";
     pick.setAttribute("aria-pressed", String(included));
     pick.textContent = included ? "Using this song" : "Use this song";
     pick.addEventListener("click", () => toggleIncluded(i));
-    matchEl.append(a, pick);
+    matchEl.append(pick);
   } else if (status === "missing" && !forced) {
     matchEl.textContent = `not on ${SERVICE[state.target]}`;
+  } else if (status === "found" && match?.picked) {
+    matchEl.append("picked: ", songLink(match));
   }
+
+  if (!forced && !state.matching) {
+    const find = document.createElement("button");
+    find.type = "button";
+    find.className = "find";
+    find.textContent = status === "missing" ? `Search ${SERVICE[state.target]}` : "Wrong song?";
+    find.addEventListener("click", () => openSearch(i));
+    matchEl.append(find);
+  }
+}
+
+function songLink(song) {
+  const a = document.createElement("a");
+  a.href = song.url;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.textContent = `${song.title} by ${song.artists.join(", ")}`;
+  return a;
+}
+
+// ---------- search by hand ----------
+
+function openSearch(i) {
+  const open = document.querySelector(".track-search");
+  if (open) closeSearch(Number(open.closest(".track").dataset.index));
+
+  const li = $("tracks").children[i];
+  const track = state.playlist.tracks[i];
+  const box = document.createElement("form");
+  box.className = "track-search";
+
+  const row = document.createElement("div");
+  row.className = "search-row";
+  const input = document.createElement("input");
+  input.type = "search";
+  input.value = `${track.title} ${track.artists[0] ?? ""}`.trim();
+  input.setAttribute("aria-label", `Search ${SERVICE[state.target]}`);
+  const go = document.createElement("button");
+  go.type = "submit";
+  go.className = "pick";
+  go.textContent = "Search";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "find";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => closeSearch(i));
+  row.append(input, go, cancel);
+
+  const results = document.createElement("ul");
+  results.className = "search-results";
+  results.setAttribute("aria-live", "polite");
+  box.append(row, results);
+
+  box.addEventListener("submit", (e) => {
+    e.preventDefault();
+    runSearch(i, input.value, results);
+  });
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSearch(i);
+  });
+
+  li.querySelector(".track-text").append(box);
+  input.focus();
+  runSearch(i, input.value, results);
+}
+
+function closeSearch(i) {
+  const li = $("tracks").children[i];
+  li.querySelector(".track-search")?.remove();
+  setRow(i);
+  li.querySelector(".find")?.focus();
+}
+
+async function runSearch(i, q, list) {
+  q = q.trim();
+  if (!q) return;
+  list.dataset.q = q;
+  const note = document.createElement("li");
+  note.className = "search-note";
+  note.textContent = "Looking…";
+  list.replaceChildren(note);
+  try {
+    const found = await searcher(guessStorefront())(q);
+    if (list.dataset.q !== q) return; // a newer search took over
+    if (!found.length) {
+      note.textContent = "Nothing found. Try different words.";
+      return;
+    }
+    list.replaceChildren(...found.map((song) => {
+      const item = document.createElement("li");
+      const length = document.createElement("span");
+      length.className = "search-length";
+      length.textContent = song.durationMs ? formatLength(song.durationMs) : "";
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "pick";
+      use.textContent = "Use this";
+      use.addEventListener("click", () => usePick(i, song));
+      item.append(songLink(song), length, use);
+      return item;
+    }));
+  } catch (err) {
+    if (list.dataset.q === q) note.textContent = err.message;
+  }
+}
+
+function usePick(i, song) {
+  const match = { ...song, score: 1, picked: true };
+  state.matches[i] = match;
+  state.included.add(i);
+  // Remember it, so the same playlist next time keeps this pick.
+  const known = readMatches();
+  const key = matchKey(state.playlist.tracks[i], guessStorefront());
+  delete known[key];
+  known[key] = { at: Date.now(), match };
+  writeMatches(known);
+  closeSearch(i);
+  updateSummary();
+}
+
+function formatLength(ms) {
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function toggleIncluded(i) {
@@ -457,7 +594,7 @@ async function searchAppleCatalog(storefront, q, done, total) {
     if ((res.status !== 429 && res.status !== 401) || attempt >= waits.length) {
       throw new Error(`Apple Music search failed (${res.status}). Try again in a minute.`);
     }
-    if (res.status === 429) setProgress(`tape jammed. rewinding… ${done} of ${total}`);
+    if (res.status === 429 && total) setProgress(`tape jammed. rewinding… ${done} of ${total}`);
     await new Promise((r) => setTimeout(r, waits[attempt]));
   }
 }
