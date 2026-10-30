@@ -63,7 +63,7 @@ async function onPaste(event) {
     state.included = new Set();
     if (state.target === "apple" && state.config.apple) prepareMusicKit().catch(() => {});
     renderDeck();
-    $("deck").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    $("deck").scrollIntoView({ behavior: scrollBehavior() });
     await matchAll();
   } catch (err) {
     showError("paste-error", err.message);
@@ -131,12 +131,14 @@ async function matchAll() {
 
   document.querySelector(".tape").classList.add("is-dubbing");
   setProgress(`dubbing… 0 of ${tracks.length}`);
+  following = true;
 
   const worker = async () => {
     while (batches.length) {
       const start = batches.shift();
       const slice = tracks.slice(start, start + BATCH);
       slice.forEach((_, j) => setRow(start + j, "working"));
+      follow($("tracks").children[start + slice.length - 1]);
       let results;
       try {
         results = await matchBatch(slice, done, tracks.length);
@@ -164,7 +166,24 @@ async function matchAll() {
     showSave(err.message);
   } finally {
     document.querySelector(".tape").classList.remove("is-dubbing");
+    follow($("save"));
+    following = false;
   }
+}
+
+// While matching, keep the newest rows in view, then land on Save. Stops as
+// soon as the visitor scrolls on their own.
+let following = false;
+for (const type of ["wheel", "touchmove", "keydown"]) {
+  addEventListener(type, () => { following = false; }, { passive: true });
+}
+
+function follow(el) {
+  if (following && el) el.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
+}
+
+function scrollBehavior() {
+  return matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 }
 
 // Apple with a key: search Apple straight from the browser. Otherwise go
