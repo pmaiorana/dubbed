@@ -325,16 +325,17 @@ function description() {
   return `Dubbed from ${SERVICE[state.playlist.source]}: ${state.playlist.url}`;
 }
 
-function showDone(link) {
+function showDone(link, label = `Open in ${SERVICE[state.target]}`) {
   $("save").hidden = true;
   $("done").hidden = false;
-  const where = link ? "" : ` Find it under Playlists in ${SERVICE[state.target]}.`;
+  const where = state.target === "apple" ? ` Find it under Playlists in ${SERVICE.apple}.` : "";
   $("done-copy").textContent = `${keepers().length} songs are now in "${state.playlist.name}" on ${SERVICE[state.target]}.${where}`;
   const a = $("done-link");
   a.hidden = !link;
   if (link) {
     a.href = link;
-    a.textContent = `Open in ${SERVICE[state.target]}`;
+    a.target = link.startsWith("http") ? "_blank" : "";
+    a.textContent = label;
     a.focus();
   } else {
     $("again-btn").focus();
@@ -440,12 +441,12 @@ async function saveToApple() {
   });
   if (res.status === 403) throw new Error("Apple says your account can't make playlists. You need an active Apple Music subscription.");
   if (!res.ok) throw new Error(`Apple Music said no (${res.status}). Try again.`);
-  // On Macs, music.apple.com links open in the Music app, which can't open
-  // /library/ addresses ("resource not found"). beta.music.apple.com stays in
-  // the browser.
-  const data = await res.json();
-  const id = data.data?.[0]?.id;
-  showDone(id ? `https://beta.music.apple.com/library/playlist/${id}` : null);
+  // Apple offers no link to a new library playlist: the Music app rejects
+  // /library/ addresses, and a shareable pl.u- ID only exists after the owner
+  // taps Share. Home is the closest page the app will open. music:// only works
+  // where the Music app is installed, so other devices get directions only.
+  const hasMusicApp = /Macintosh|iPhone|iPad|iPod/.test(navigator.userAgent);
+  showDone(hasMusicApp ? "music://music.apple.com/home" : null, "Open the Music app");
 }
 
 // ---------- Spotify (PKCE login, so no secret in the browser) ----------
