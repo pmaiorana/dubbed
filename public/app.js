@@ -325,11 +325,12 @@ function description() {
   return `Dubbed from ${SERVICE[state.playlist.source]}: ${state.playlist.url}`;
 }
 
-function showDone(link, label = `Open in ${SERVICE[state.target]}`) {
+function showDone(link, label = `Open in ${SERVICE[state.target]}`, isPublic = false) {
   $("save").hidden = true;
   $("done").hidden = false;
-  const where = state.target === "apple" ? ` Find it under Playlists in ${SERVICE.apple}.` : "";
+  const where = state.target === "apple" && !isPublic ? ` Find it under Playlists in ${SERVICE.apple}.` : "";
   $("done-copy").textContent = `${keepers().length} songs are now in "${state.playlist.name}" on ${SERVICE[state.target]}.${where}`;
+  $("done-note").hidden = !isPublic;
   const a = $("done-link");
   a.hidden = !link;
   if (link) {
@@ -426,27 +427,46 @@ async function saveToApple() {
   const userToken = await musicKit.authorize();
   if (!userToken) throw new Error("Apple sign-in was cancelled.");
   const token = await getDeveloperToken();
+  const headers = { Authorization: `Bearer ${token}`, "Music-User-Token": userToken, "Content-Type": "application/json" };
 
-  const res = await fetch("https://api.music.apple.com/v1/me/library/playlists", {
+  // Public, because only public playlists get a shareable pl.u- ID, and only
+  // that kind of link opens straight to the playlist in the Music app.
+  const create = (isPublic) => fetch("https://api.music.apple.com/v1/me/library/playlists", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Music-User-Token": userToken,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
-      attributes: { name: state.playlist.name, description: description() },
+      attributes: { name: state.playlist.name, description: description(), ...(isPublic && { isPublic: true }) },
       relationships: { tracks: { data: keepers().map((m) => ({ id: m.id, type: "songs" })) } },
     }),
   });
+  let res = await create(true);
+  if (res.status === 400) res = await create(false);
   if (res.status === 403) throw new Error("Apple says your account can't make playlists. You need an active Apple Music subscription.");
   if (!res.ok) throw new Error(`Apple Music said no (${res.status}). Try again.`);
-  // Apple offers no link to a new library playlist: the Music app rejects
-  // /library/ addresses, and a shareable pl.u- ID only exists after the owner
-  // taps Share. Home is the closest page the app will open. music:// only works
-  // where the Music app is installed, so other devices get directions only.
+  const created = (await res.json()).data?.[0];
+
+  const globalId = created?.id && await waitForGlobalId(created.id, headers);
+  if (globalId) {
+    const storefront = musicKit.storefrontId || guessStorefront();
+    showDone(`https://music.apple.com/${storefront}/playlist/${globalId}`, `Open in ${SERVICE.apple}`, true);
+    return;
+  }
+  // No public ID: the Music app rejects /library/ addresses, so Home is the
+  // closest page it will open. music:// only works where the Music app is
+  // installed, so other devices get directions only.
   const hasMusicApp = /Macintosh|iPhone|iPad|iPod/.test(navigator.userAgent);
   showDone(hasMusicApp ? "music://music.apple.com/home" : null, "Open the Music app");
+}
+
+// Apple may take a moment to give a new public playlist its pl.u- ID.
+async function waitForGlobalId(id, headers) {
+  for (let i = 0; i < 6; i++) {
+    const res = await fetch(`https://api.music.apple.com/v1/me/library/playlists/${id}`, { headers }).catch(() => null);
+    const globalId = res?.ok ? (await res.json()).data?.[0]?.attributes?.playParams?.globalId : null;
+    if (globalId) return globalId;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return null;
 }
 
 // ---------- Spotify (PKCE login, so no secret in the browser) ----------

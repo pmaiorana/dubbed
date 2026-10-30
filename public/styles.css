@@ -267,6 +267,7 @@ body {
   color: var(--paper); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill;
 }
 .done-copy { margin: 0; font-weight: 700; }
+.done-note { margin: 0; max-width: 60ch; font-size: 0.95rem; }
 .done .btn { background: var(--paper); }
 /* ---------- footer ---------- */
 
