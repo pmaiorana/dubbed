@@ -491,10 +491,9 @@ function showSave(errorMessage) {
       code.rel = "noopener";
       code.textContent = "Our code is public";
       note.replaceChildren(
-        "Apple will ask you to sign in. That happens in Apple's own window, so your password goes to Apple, not to us. " +
-        "Apple then lets this page add the playlist to your library. That permission stays in your browser. Our server never sees it. ",
+        "Apple will ask you to sign in: that happens in Apple's own window, so your password goes directly to Apple, not to us. ",
         code,
-        " if you want to check.",
+        ", so you can verify this as well.",
       );
     } else {
       note.textContent = "Saving to Apple Music isn't switched on yet. The site owner needs to add an Apple MusicKit key.";
