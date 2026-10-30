@@ -322,7 +322,9 @@ async function onCopy() {
 }
 
 function description() {
-  return `Dubbed from ${SERVICE[state.playlist.source]}: ${state.playlist.url}`;
+  const { owner, source, url } = state.playlist;
+  const from = owner ? `${owner}'s ${SERVICE[source]} playlist` : SERVICE[source];
+  return `Dubbed from ${from}: ${url}`;
 }
 
 function showDone(link, label = `Open in ${SERVICE[state.target]}`, isPublic = false) {
