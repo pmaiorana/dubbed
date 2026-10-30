@@ -491,9 +491,10 @@ function showSave(errorMessage) {
       code.rel = "noopener";
       code.textContent = "Our code is public";
       note.replaceChildren(
-        "Apple will ask you to sign in: that happens in Apple's own window, so your password goes directly to Apple, not to us. ",
+        "Apple will ask you to sign in: that happens in Apple's own window, so your password goes directly to Apple, not to us.",
+        document.createElement("br"),
         code,
-        ", if you want to verify.", // no-break space keeps "verify" off a line by itself
+        ", you can verify!",
       );
     } else {
       note.textContent = "Saving to Apple Music isn't switched on yet. The site owner needs to add an Apple MusicKit key.";
