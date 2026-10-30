@@ -484,9 +484,21 @@ function showSave(errorMessage) {
     saveBtn.textContent = "Save to Apple Music";
     saveBtn.hidden = !config.apple;
     copyBtn.hidden = true;
-    note.textContent = config.apple
-      ? "Apple will ask you to sign in. The playlist goes straight into your library."
-      : "Saving to Apple Music isn't switched on yet. The site owner needs to add an Apple MusicKit key.";
+    if (config.apple) {
+      const code = document.createElement("a");
+      code.href = "https://github.com/pmaiorana/dubbed";
+      code.target = "_blank";
+      code.rel = "noopener";
+      code.textContent = "Our code is public";
+      note.replaceChildren(
+        "Apple will ask you to sign in. That happens in Apple's own window, so your password goes to Apple, not to us. " +
+        "Apple then lets this page add the playlist to your library. That permission stays in your browser. Our server never sees it. ",
+        code,
+        " if you want to check.",
+      );
+    } else {
+      note.textContent = "Saving to Apple Music isn't switched on yet. The site owner needs to add an Apple MusicKit key.";
+    }
   } else {
     saveBtn.textContent = "Log in to Spotify and save";
     saveBtn.hidden = !config.spotifyClientId;

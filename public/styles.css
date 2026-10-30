@@ -322,6 +322,7 @@ body {
 .save-row { display: flex; gap: 14px; flex-wrap: wrap; }
 .save-note { margin: 14px 0 0; font-size: 0.95rem; max-width: 60ch; }
 .save-note:empty { display: none; }
+.save-note a { color: inherit; }
 .save .error { color: var(--ink); }
 
 .done { background: var(--pink); color: var(--ink); display: grid; gap: 14px; justify-items: start; }
