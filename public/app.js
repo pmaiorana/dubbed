@@ -440,9 +440,12 @@ async function saveToApple() {
   });
   if (res.status === 403) throw new Error("Apple says your account can't make playlists. You need an active Apple Music subscription.");
   if (!res.ok) throw new Error(`Apple Music said no (${res.status}). Try again.`);
-  // No link: on Macs, music.apple.com links open in the Music app, which can't
-  // open /library/ addresses and shows "resource not found".
-  showDone(null);
+  // On Macs, music.apple.com links open in the Music app, which can't open
+  // /library/ addresses ("resource not found"). beta.music.apple.com stays in
+  // the browser.
+  const data = await res.json();
+  const id = data.data?.[0]?.id;
+  showDone(id ? `https://beta.music.apple.com/library/playlist/${id}` : null);
 }
 
 // ---------- Spotify (PKCE login, so no secret in the browser) ----------
