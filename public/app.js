@@ -11,6 +11,9 @@ const BATCH = 10;
 const PARALLEL = 1;
 const RETRY_WAITS = [3000, 8000, 15000];
 const STASH_KEY = "dubbed:pending";
+const MATCHES_KEY = "dubbed:matches";
+const MATCHES_TTL = 7 * 24 * 60 * 60 * 1000;
+const MATCHES_MAX = 2000;
 
 const state = {
   config: { apple: false, spotify: false, spotifyClientId: null },
@@ -171,9 +174,40 @@ async function matchBatch(slice, done, total) {
   const search = state.target === "apple" && state.config.apple
     ? (q) => searchAppleCatalog(storefront, q, done, total)
     : (q) => searchViaServer(storefront, q, done, total);
+  const known = readMatches();
   const results = [];
-  for (const track of slice) results.push(await bestMatch(track, search));
+  for (const track of slice) {
+    const key = `${state.target}:${storefront}:${track.title}|${track.artists.join(",")}`;
+    const hit = known[key];
+    if (hit && Date.now() - hit.at < MATCHES_TTL) {
+      results.push(hit.match);
+      continue;
+    }
+    const match = await bestMatch(track, search);
+    // Misses aren't kept, so they get another look next time.
+    delete known[key]; // re-add at the end, so the oldest get dropped first
+    if (match) known[key] = { at: Date.now(), match };
+    results.push(match);
+  }
+  writeMatches(known);
   return results;
+}
+
+// Songs already matched, so a second run (or a playlist sharing songs) skips
+// the searches.
+let matchCache = null;
+
+function readMatches() {
+  if (!matchCache) {
+    try { matchCache = JSON.parse(localStorage.getItem(MATCHES_KEY)) ?? {}; } catch { matchCache = {}; }
+  }
+  return matchCache;
+}
+
+function writeMatches(known) {
+  const keys = Object.keys(known);
+  for (const key of keys.slice(0, Math.max(0, keys.length - MATCHES_MAX))) delete known[key];
+  try { localStorage.setItem(MATCHES_KEY, JSON.stringify(known)); } catch {}
 }
 
 // When a search service is busy the server says 503. Wait and try again.

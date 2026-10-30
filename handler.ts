@@ -60,14 +60,27 @@ function config(env: Env) {
   });
 }
 
+// Every read hits Spotify or Apple from our one shared address, so keep
+// recent ones for a bit. Lives in this server instance's memory only.
+const PLAYLIST_TTL = 10 * 60_000;
+const playlistCache = new Map<string, { at: number; result: unknown }>();
+
 async function playlist(url: URL) {
   const raw = url.searchParams.get("url") ?? "";
   const parsed = parsePlaylistUrl(raw);
   if (!parsed) throw new HttpError(400, "That doesn't look like a Spotify or Apple Music playlist link.");
-  const result = parsed.source === "spotify"
-    ? await readSpotifyPlaylist(parsed.id)
-    : await readApplePlaylist(parsed.storefront, parsed.id, parsed.slug);
-  return Response.json(result);
+  const key = parsed.source === "spotify" ? `spotify:${parsed.id}` : `apple:${parsed.storefront}:${parsed.id}`;
+  const hit = playlistCache.get(key);
+  let result = hit && Date.now() - hit.at < PLAYLIST_TTL ? hit.result : null;
+  if (!result) {
+    result = parsed.source === "spotify"
+      ? await readSpotifyPlaylist(parsed.id)
+      : await readApplePlaylist(parsed.storefront, parsed.id, parsed.slug);
+    playlistCache.delete(key);
+    playlistCache.set(key, { at: Date.now(), result });
+    if (playlistCache.size > 200) playlistCache.delete(playlistCache.keys().next().value!);
+  }
+  return Response.json(result, { headers: { "Cache-Control": "public, max-age=300" } });
 }
 
 // Search pass-through: Spotify, or Apple via the free iTunes search when no
